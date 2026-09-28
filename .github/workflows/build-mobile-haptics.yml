@@ -39,28 +39,28 @@ jobs:
           rm -rf /tmp/mobilehaptics-src
           mkdir -p /tmp/mobilehaptics-src
           unzip -q mobile-haptics-source.zip -d /tmp/mobilehaptics-src
-
           SRC_DIR="$(find /tmp/mobilehaptics-src -mindepth 1 -maxdepth 1 -type d | head -n1)"
           test -n "$SRC_DIR"
-
           cp -a "$SRC_DIR"/. .
 
       - name: Build Android native bridge (arm64 + x86_64)
         shell: bash
         run: |
+          set -e
           NDK="$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}"
           CLANG="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++"
-          SYSROOT="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
 
           test -x "$CLANG"
-          test -d "$SYSROOT"
 
           mkdir -p src/main/resources/native/arm64-v8a
           mkdir -p src/main/resources/native/x86_64
 
-          "$CLANG" --target=aarch64-linux-android24 -shared -fPIC -O2             -isystem "$SYSROOT/usr/include"             src/main/cpp/mobilehaptics.cpp             -o src/main/resources/native/arm64-v8a/libmobilehaptics.so
+          # Do not add the NDK C sysroot with -isystem here.
+          # clang++ automatically configures libc++ and the Android sysroot
+          # for the selected Android target.
+          "$CLANG" --target=aarch64-linux-android24             -shared -fPIC -O2 -std=c++17             src/main/cpp/mobilehaptics.cpp             -o src/main/resources/native/arm64-v8a/libmobilehaptics.so
 
-          "$CLANG" --target=x86_64-linux-android24 -shared -fPIC -O2             -isystem "$SYSROOT/usr/include"             src/main/cpp/mobilehaptics.cpp             -o src/main/resources/native/x86_64/libmobilehaptics.so
+          "$CLANG" --target=x86_64-linux-android24             -shared -fPIC -O2 -std=c++17             src/main/cpp/mobilehaptics.cpp             -o src/main/resources/native/x86_64/libmobilehaptics.so
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
