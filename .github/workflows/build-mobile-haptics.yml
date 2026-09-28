@@ -5,7 +5,7 @@ on:
   push:
     paths:
       - 'mobile-haptics-source.zip'
-      - 'build-mobile-haptics.yml'
+      - '.github/workflows/build-mobile-haptics.yml'
 
 env:
   GRADLE_VERSION: '9.6.0'
@@ -14,6 +14,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,10 +25,12 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK and NDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
 
-      - name: Install NDK
+      - name: Install Android NDK
         run: sdkmanager "ndk;${NDK_VERSION}"
 
       - name: Extract source archive
@@ -36,8 +39,10 @@ jobs:
           rm -rf /tmp/mobilehaptics-src
           mkdir -p /tmp/mobilehaptics-src
           unzip -q mobile-haptics-source.zip -d /tmp/mobilehaptics-src
+
           SRC_DIR="$(find /tmp/mobilehaptics-src -mindepth 1 -maxdepth 1 -type d | head -n1)"
           test -n "$SRC_DIR"
+
           cp -a "$SRC_DIR"/. .
 
       - name: Build Android native bridge (arm64 + x86_64)
@@ -46,15 +51,16 @@ jobs:
           NDK="$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}"
           CLANG="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++"
           SYSROOT="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-          mkdir -p src/main/resources/native/arm64-v8a src/main/resources/native/x86_64
-          "$CLANG" --target=aarch64-linux-android24 -shared -fPIC -O2 \
-            -isystem "$SYSROOT/usr/include" \
-            src/main/cpp/mobilehaptics.cpp \
-            -o src/main/resources/native/arm64-v8a/libmobilehaptics.so
-          "$CLANG" --target=x86_64-linux-android24 -shared -fPIC -O2 \
-            -isystem "$SYSROOT/usr/include" \
-            src/main/cpp/mobilehaptics.cpp \
-            -o src/main/resources/native/x86_64/libmobilehaptics.so
+
+          test -x "$CLANG"
+          test -d "$SYSROOT"
+
+          mkdir -p src/main/resources/native/arm64-v8a
+          mkdir -p src/main/resources/native/x86_64
+
+          "$CLANG" --target=aarch64-linux-android24 -shared -fPIC -O2             -isystem "$SYSROOT/usr/include"             src/main/cpp/mobilehaptics.cpp             -o src/main/resources/native/arm64-v8a/libmobilehaptics.so
+
+          "$CLANG" --target=x86_64-linux-android24 -shared -fPIC -O2             -isystem "$SYSROOT/usr/include"             src/main/cpp/mobilehaptics.cpp             -o src/main/resources/native/x86_64/libmobilehaptics.so
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
